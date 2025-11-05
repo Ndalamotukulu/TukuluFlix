@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TukuluFlix 🎥</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #000; color: #fff; text-align: center; }
+    .container { max-width: 500px; margin: auto; padding: 20px; }
+    input, button { margin: 10px; padding: 10px; width: 90%; }
+    .movie { background: #111; padding: 10px; border-radius: 10px; margin: 10px 0; }
+    img { width: 100%; border-radius: 10px; }
+  </style>
+</head>
+<body>
+  <h1>TukuluFlix 🎥</h1>
+  <div class="container">
+    <div id="auth-section">
+      <h3>Login / Sign Up</h3>
+      <input type="email" id="email" placeholder="Email" />
+      <input type="password" id="password" placeholder="Password" />
+      <button id="signup">Sign Up</button>
+      <button id="login">Login</button>
+    </div>
+
+    <div id="upload-section" style="display:none;">
+      <h3>Upload Movie</h3>
+      <input type="text" id="title" placeholder="Movie Title" />
+      <input type="text" id="year" placeholder="Year" />
+      <input type="text" id="desc" placeholder="Description" />
+      <input type="file" id="imageFile" accept="image/*" />
+      <button id="uploadBtn">Upload Movie</button>
+      <p id="uploadMsg"></p>
+    </div>
+
+    <div id="movies"></div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
+    import { getFirestore, collection, addDoc, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
+    import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-storage.js";
+    import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAg6QVwlLj1MJ25eiD1caeF_S21k_gzfXU",
+      authDomain: "tukuluflix.firebaseapp.com",
+      projectId: "tukuluflix",
+      storageBucket: "tukuluflix.firebasestorage.app",
+      messagingSenderId: "615822572297",
+      appId: "1:615822572297:web:9586daf4a4df2c034bf1d8",
+      measurementId: "G-H6GNWLR236"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const storage = getStorage(app);
+    const auth = getAuth(app);
+
+    const authSection = document.getElementById('auth-section');
+    const uploadSection = document.getElementById('upload-section');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const uploadMsg = document.getElementById('uploadMsg');
+    const moviesDiv = document.getElementById('movies');
+
+    document.getElementById('signup').onclick = async () => {
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      await createUserWithEmailAndPassword(auth, email, password);
+      alert('✅ Account created! You can now login.');
+    };
+
+    document.getElementById('login').onclick = async () => {
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      await signInWithEmailAndPassword(auth, email, password);
+      alert('✅ Logged in successfully!');
+    };
+
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        authSection.style.display = 'none';
+        uploadSection.style.display = 'block';
+        loadMovies();
+      } else {
+        authSection.style.display = 'block';
+        uploadSection.style.display = 'none';
+      }
+    });
+
+    async function loadMovies() {
+      moviesDiv.innerHTML = '<h3>🎬 Movie List</h3>';
+      const querySnapshot = await getDocs(collection(db, "movies"));
+      querySnapshot.forEach((doc) => {
+        const movie = doc.data();
+        moviesDiv.innerHTML += \`
+          <div class='movie'>
+            <img src="\${movie.imageURL}" alt="poster">
+            <h4>\${movie.title} (\${movie.year})</h4>
+            <p>\${movie.desc}</p>
+          </div>
+        \`;
+      });
+    }
+
+    uploadBtn.onclick = async () => {
+      const title = document.getElementById('title').value;
+      const year = document.getElementById('year').value;
+      const desc = document.getElementById('desc').value;
+      const imageFile = document.getElementById('imageFile').files[0];
+
+      if (!title || !year) {
+        uploadMsg.textContent = "Please fill in title and year.";
+        return;
+      }
+
+      uploadMsg.textContent = "Uploading...";
+      let imageURL = "https://via.placeholder.com/300x450.png?text=No+Image";
+      if (imageFile) {
+        const imageRef = ref(storage, \`movies/\${Date.now()}_\${imageFile.name}\`);
+        await uploadBytes(imageRef, imageFile);
+        imageURL = await getDownloadURL(imageRef);
+      }
+
+      await addDoc(collection(db, "movies"), { title, year, desc, imageURL, createdAt: serverTimestamp() });
+      uploadMsg.textContent = "✅ Movie uploaded!";
+      loadMovies();
+    };
+  </script>
+</body>
+</html>
